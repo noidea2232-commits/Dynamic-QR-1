@@ -4,7 +4,11 @@ export const APP_CONFIG = {
   appName: 'CardSync CRM',
   tagline: 'Dynamic QR + NFC Card Infrastructure',
   version: '1.0.0-phase1',
-  dynamicBaseUrl: 'https://manishreddyin.netlify.app',
+  dynamicBaseUrl:
+    import.meta.env.VITE_DYNAMIC_BASE_URL ||
+    (typeof window !== 'undefined' && window.location.origin.startsWith('http')
+      ? window.location.origin
+      : 'https://dynamic-qr-1.vercel.app'),
   dynamicPathPrefix: '/c/',
   defaultGoogleReviewUrl: 'https://example.com/google-review-test',
 };
