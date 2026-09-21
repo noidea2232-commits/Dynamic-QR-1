@@ -30,3 +30,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
+
+/* Ensure typed text in inputs and autofill are always crystal clear and high contrast */
+input, textarea, select {
+  color-scheme: dark;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #2dd4bf !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

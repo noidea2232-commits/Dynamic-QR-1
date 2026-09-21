@@ -1,4 +1,6 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
+import { Eye, EyeOff } from 'lucide-react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -8,17 +10,25 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightIcon?: React.ReactNode;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(({
-  label,
-  error,
-  helperText,
-  leftIcon,
-  rightIcon,
-  className = '',
-  id,
-  ...props
-}, ref) => {
+export const Input = forwardRef<HTMLInputElement, InputProps>((
+  {
+    label,
+    error,
+    helperText,
+    leftIcon,
+    rightIcon,
+    className = '',
+    id,
+    type,
+    ...props
+  },
+  ref
+) => {
   const generatedId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  const isPassword = type === 'password';
+  const [showPassword, setShowPassword] = useState(false);
+
+  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
   return (
     <div className="w-full space-y-1.5">
@@ -37,22 +47,39 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         <input
           ref={ref}
           id={generatedId}
-          className={`block w-full rounded-lg border text-sm transition-colors duration-150 py-2.5 ${
-            leftIcon ? 'pl-10' : 'pl-3.5'
-          } ${rightIcon ? 'pr-10' : 'pr-3.5'} ${
+          type={inputType}
+          className={twMerge(
+            'block w-full rounded-lg border text-sm font-medium transition-colors duration-150 py-2.5 caret-brand-400',
+            leftIcon ? 'pl-10' : 'pl-3.5',
+            isPassword || rightIcon ? 'pr-10' : 'pr-3.5',
             error
-              ? 'border-rose-300 text-rose-900 placeholder-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/20'
-              : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-brand-500 hover:border-slate-400'
-          } focus:outline-none focus:ring-1 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed ${className}`}
+              ? 'border-rose-500 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-rose-400 focus:ring-rose-400'
+              : 'border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:ring-brand-500 hover:border-slate-600',
+            'focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed',
+            className
+          )}
           {...props}
         />
-        {rightIcon && (
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+        {/* Password toggle */}
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowPassword(v => !v)}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer z-10"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
+        {/* Custom right icon (non-password) */}
+        {!isPassword && rightIcon && (
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 pointer-events-none z-10">
             {rightIcon}
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+      {error && <p className="text-xs text-rose-400 font-medium">{error}</p>}
       {!error && helperText && <p className="text-xs text-slate-500">{helperText}</p>}
     </div>
   );
