@@ -37,7 +37,7 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Subtle background glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none z-0" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
@@ -48,7 +48,7 @@ export const Login: React.FC = () => {
         <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-white">
           {APP_CONFIG.appName}
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-400 font-medium">
+        <p className="mt-1 text-center text-xs text-slate-300 font-medium">
           Admin CRM for Dynamic QR & NFC Physical Cards
         </p>
       </div>

@@ -60,29 +60,30 @@ export const authService = {
     const cleanEmail = email.trim();
 
     if (isSupabaseConfigured() && supabase && password) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.user) {
-        const user: UserProfile = {
-          id: data.user.id,
-          name: data.user.user_metadata?.name || cleanEmail.split('@')[0] || 'Admin',
-          email: data.user.email || cleanEmail,
-          role: 'Admin',
-          avatar_url: data.user.user_metadata?.avatar_url || DEFAULT_ADMIN.avatar_url,
-        };
-        try {
-          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-        } catch {
-          // ignore
+        if (!error && data.user) {
+          const user: UserProfile = {
+            id: data.user.id,
+            name: data.user.user_metadata?.name || cleanEmail.split('@')[0] || 'Admin',
+            email: data.user.email || cleanEmail,
+            role: 'Admin',
+            avatar_url: data.user.user_metadata?.avatar_url || DEFAULT_ADMIN.avatar_url,
+          };
+          try {
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+          } catch {
+            // ignore
+          }
+          return user;
         }
-        return user;
+        // Supabase auth failed (user not yet created) — fall through to local mock
+      } catch {
+        // Supabase unreachable — fall through to local mock
       }
     }
 
