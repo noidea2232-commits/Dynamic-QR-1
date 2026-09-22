@@ -15,6 +15,8 @@ import {
   Globe,
   CheckCircle2,
   ShieldCheck,
+  Ban,
+  CheckCircle,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -37,6 +39,7 @@ export const CardDetails: React.FC = () => {
 
   const [card, setCard] = useState<Card | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Edit Destination Modal
   const [isEditDestModalOpen, setIsEditDestModalOpen] = useState(false);
@@ -54,6 +57,7 @@ export const CardDetails: React.FC = () => {
   const loadCard = async () => {
     if (!id) return;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await cardService.getCardById(id);
       if (data) {
@@ -64,7 +68,9 @@ export const CardDetails: React.FC = () => {
         setCard(null);
       }
     } catch (err) {
-      error('Error loading card', (err as Error).message);
+      const msg = (err as Error).message || 'Failed to load card from database';
+      setLoadError(msg);
+      error('Error loading card', msg);
     } finally {
       setIsLoading(false);
     }
@@ -75,14 +81,14 @@ export const CardDetails: React.FC = () => {
   }, [id]);
 
   if (isLoading) {
-    return <LoadingState message="Loading card details..." />;
+    return <LoadingState message="Loading card details from Supabase..." />;
   }
 
-  if (!card) {
+  if (loadError || !card) {
     return (
       <ErrorState
         title="Card Not Found"
-        message={`No card record found matching identifier "${id}".`}
+        message={loadError || `No card record found in Supabase matching identifier "${id}".`}
         onRetry={() => navigate('/cards')}
       />
     );
@@ -110,7 +116,10 @@ export const CardDetails: React.FC = () => {
     try {
       const updated = await cardService.updateCardDestination(card.id, destinationInput.trim());
       setCard(updated);
-      success('Destination updated successfully.', 'The physical QR and dynamic URL remain unchanged.');
+      success(
+        'Destination updated successfully in database.',
+        'The physical QR, token, and dynamic URL remain unchanged.'
+      );
       setIsEditDestModalOpen(false);
     } catch (err) {
       error('Failed to update destination', (err as Error).message);
@@ -125,12 +134,23 @@ export const CardDetails: React.FC = () => {
     try {
       const updated = await cardService.updateCardStatus(card.id, statusInput);
       setCard(updated);
-      success('Status Changed', `Card status updated to ${statusInput}`);
+      success('Status Changed in Supabase', `Card status updated to ${statusInput}`);
       setIsStatusModalOpen(false);
     } catch (err) {
       error('Failed to update status', (err as Error).message);
     } finally {
       setIsSavingStatus(false);
+    }
+  };
+
+  const handleToggleStatusQuick = async () => {
+    const nextStatus: CardStatus = card.status === 'Disabled' ? 'Ready' : 'Disabled';
+    try {
+      const updated = await cardService.updateCardStatus(card.id, nextStatus);
+      setCard(updated);
+      success(`Card ${nextStatus === 'Disabled' ? 'Disabled' : 'Enabled'}`, `Status updated in Supabase to ${nextStatus}`);
+    } catch (err) {
+      error('Failed to toggle status', (err as Error).message);
     }
   };
 
@@ -168,7 +188,7 @@ export const CardDetails: React.FC = () => {
     const updated = await cardService.recordCardScan(card.public_token);
     if (updated) {
       setCard(updated);
-      success('Scan Recorded!', `Total scans incremented to ${updated.total_scans}`);
+      success('Scan Recorded in Supabase!', `Total scans incremented to ${updated.total_scans}`);
     }
   };
 
@@ -187,20 +207,28 @@ export const CardDetails: React.FC = () => {
         </Button>
         <PageHeader
           title={`Card ${card.internal_card_no}`}
-          description={`Hardware PVC card identity with permanent token ${card.public_token}`}
+          description={`Hardware PVC card registered in Supabase with security token ${card.public_token}`}
           badge={<StatusBadge status={card.status} type="card" />}
           actions={
             <div className="flex items-center gap-2">
               <a
-                href={`/c/${card.public_token}`}
+                href={dynamicUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-brand-700 transition-colors"
-                title="Test scan target on frontend"
+                title="Test dynamic redirect in new tab"
               >
                 <span>Test Live Link</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+              <Button
+                variant={card.status === 'Disabled' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={handleToggleStatusQuick}
+                leftIcon={card.status === 'Disabled' ? <CheckCircle className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+              >
+                {card.status === 'Disabled' ? 'Enable Card' : 'Disable Card'}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -262,10 +290,10 @@ export const CardDetails: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Globe className="w-4 h-4 text-brand-600" />
-                  Current Destination URL (Google Review Target)
+                  Current Destination URL
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  When a customer taps or scans, the server transparently redirects them here.
+                  When a customer taps or scans, the Supabase Edge Function redirects them here.
                 </p>
               </div>
               <Button
@@ -274,32 +302,34 @@ export const CardDetails: React.FC = () => {
                 onClick={() => setIsEditDestModalOpen(true)}
                 leftIcon={<Edit2 className="w-3.5 h-3.5" />}
               >
-                Update
+                Update Destination
               </Button>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
               <span className="font-mono text-xs sm:text-sm text-slate-800 break-all">
-                {card.destination_url}
+                {card.destination_url || <span className="text-slate-400 italic">No destination configured</span>}
               </span>
-              <a
-                href={card.destination_url}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1.5 text-slate-400 hover:text-brand-600 rounded-md transition-colors shrink-0"
-                title="Open Destination in New Tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
+              {card.destination_url && (
+                <a
+                  href={card.destination_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1.5 text-slate-400 hover:text-brand-600 rounded-md transition-colors shrink-0"
+                  title="Open Destination in New Tab"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs text-slate-600">
               <div className="p-3 bg-slate-50/70 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block mb-0.5">Original Target at Creation:</span>
-                <span className="font-mono text-slate-700 truncate block">{card.original_url || '—'}</span>
+                <span className="text-slate-400 block mb-0.5">Created Date:</span>
+                <span className="font-medium text-slate-700 block">{formatDate(card.created_at)}</span>
               </div>
               <div className="p-3 bg-slate-50/70 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block mb-0.5">Last Destination Update:</span>
+                <span className="text-slate-400 block mb-0.5">Last Database Update:</span>
                 <span className="text-slate-700 font-medium block">{formatRelativeTime(card.updated_at)}</span>
               </div>
             </div>
@@ -334,13 +364,13 @@ export const CardDetails: React.FC = () => {
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-brand-600" />
-              Card Specifications & Metadata
+              Supabase Card Attributes & Metadata
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-1">
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
-                  Card Identifier
+                  Internal Card Number
                 </span>
                 <span className="font-mono font-bold text-slate-900 text-base">{card.internal_card_no}</span>
               </div>
@@ -354,16 +384,18 @@ export const CardDetails: React.FC = () => {
 
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-1">
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
-                  Assigned Client
+                  Database Record ID (UUID)
                 </span>
-                <span className="font-semibold text-slate-900">{card.client_name || 'Unassigned'}</span>
+                <span className="font-mono text-xs text-slate-600 truncate block">{card.id}</span>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-1">
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
-                  Origin Batch
+                  Current Lifecycle Status
                 </span>
-                <span className="font-mono text-slate-700">{card.batch_name || card.batch_id}</span>
+                <div className="pt-0.5">
+                  <StatusBadge status={card.status} type="card" />
+                </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-1">
@@ -377,7 +409,7 @@ export const CardDetails: React.FC = () => {
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
                   Total Verified Scans
                 </span>
-                <span className="font-mono font-bold text-slate-900 text-base">{card.total_scans || 0}</span>
+                <span className="font-mono font-bold text-slate-900 text-base">{card.total_scans || card.scan_count || 0}</span>
               </div>
             </div>
           </div>
@@ -434,12 +466,12 @@ export const CardDetails: React.FC = () => {
             {/* Test Scan Simulation button */}
             <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
               <a
-                href={`/c/${card.public_token}`}
+                href={dynamicUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors"
               >
-                <span>Open /c/{card.public_token} Test Page</span>
+                <span>Open Live Dynamic URL</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <Button
@@ -476,12 +508,12 @@ export const CardDetails: React.FC = () => {
 
           <div>
             <Input
-              label="New Google Review / Destination URL"
+              label="New Destination URL"
               type="url"
               required
               value={destinationInput}
               onChange={e => setDestinationInput(e.target.value)}
-              placeholder="https://g.page/r/your-google-review-link"
+              placeholder="https://example.com"
               helperText="The dynamic URL will forward to this new destination without changing the physical QR"
             />
           </div>
@@ -496,7 +528,7 @@ export const CardDetails: React.FC = () => {
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSavingDest}>
-              Update Destination
+              Update Destination in Supabase
             </Button>
           </div>
         </form>
@@ -530,7 +562,7 @@ export const CardDetails: React.FC = () => {
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSavingStatus}>
-              Save Status
+              Save Status in Supabase
             </Button>
           </div>
         </form>

@@ -29,8 +29,8 @@ export const Login: React.FC = () => {
       await login(loginEmail, loginPass);
       success('Welcome back!', 'Authenticated as CRM Administrator');
       navigate('/dashboard');
-    } catch {
-      error('Authentication failed', 'Please check your credentials.');
+    } catch (err) {
+      error('Authentication failed', (err as Error).message || 'Please check your credentials.');
     } finally {
       setIsLoading(false);
     }

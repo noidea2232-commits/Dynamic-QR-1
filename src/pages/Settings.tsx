@@ -146,15 +146,15 @@ export const Settings: React.FC = () => {
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Architecture</span>
-                <span className="text-slate-800 font-medium">Phase 1 Frontend MVP</span>
+                <span className="text-slate-800 font-medium">Part 2 Production MVP</span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Data Layer</span>
-                <span className="text-brand-700 font-mono font-medium">Local Mock / Service Layer</span>
+                <span className="text-brand-700 font-mono font-medium">Supabase PostgreSQL (cards)</span>
               </div>
               <div className="flex items-center justify-between py-1.5">
-                <span className="text-slate-500">Backend Readiness</span>
-                <span className="text-emerald-700 font-medium">Ready for Phase 3 Supabase</span>
+                <span className="text-slate-500">Backend Status</span>
+                <span className="text-emerald-700 font-medium">Connected & Active</span>
               </div>
             </div>
           </div>

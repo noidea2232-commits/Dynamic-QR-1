@@ -216,14 +216,14 @@ export const TestCardView: React.FC = () => {
               )}
             </div>
           ) : (
-            /* Cross-device / Phone session note */
+            /* Unregistered token notice */
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
               <div className="flex items-center gap-2 text-emerald-400 font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Token received successfully.</span>
               </div>
               <p className="text-slate-400 leading-relaxed text-[11px]">
-                This card is not available in the current Phase 1 mock session. Real card lookup will be connected through Supabase in Phase 2.
+                Public token {cleanToken} was received. Register or create this card in the Admin Dashboard to assign a destination URL.
               </p>
             </div>
           )}

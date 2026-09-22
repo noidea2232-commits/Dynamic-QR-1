@@ -5,7 +5,10 @@ import {
   Copy,
   Eye,
   Edit2,
+  Plus,
   QrCode,
+  ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Table, Column } from '../components/ui/Table';
@@ -18,8 +21,7 @@ import { SearchInput } from '../components/ui/SearchInput';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { cardService } from '../services/cardService';
-import { clientService } from '../services/clientService';
-import { Card, CardStatus, Client } from '../types';
+import { Card, CardStatus } from '../types';
 import { formatDate, getDynamicUrl, copyToClipboard } from '../utils';
 import { ALL_CARD_STATUSES } from '../lib/constants';
 import { useToast } from '../hooks/useToast';
@@ -29,13 +31,17 @@ export const Cards: React.FC = () => {
   const { success, error } = useToast();
   const [cards, setCards] = useState<Card[]>([]);
   const [filteredCards, setFilteredCards] = useState<Card[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [clientFilter, setClientFilter] = useState<string>('all');
+
+  // Modal for Create Card
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newDestinationUrl, setNewDestinationUrl] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   // Modal for Edit Destination / Status Change
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -46,15 +52,14 @@ export const Cards: React.FC = () => {
 
   const loadData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const [cardsData, clientsData] = await Promise.all([
-        cardService.getCards(),
-        clientService.getClients(),
-      ]);
+      const cardsData = await cardService.getCards();
       setCards(cardsData);
-      setClients(clientsData);
     } catch (err) {
-      error('Failed to load cards', (err as Error).message);
+      const msg = (err as Error).message || 'Failed to load cards from Supabase';
+      setLoadError(msg);
+      error('Failed to load cards', msg);
     } finally {
       setIsLoading(false);
     }
@@ -74,21 +79,16 @@ export const Cards: React.FC = () => {
         c =>
           c.internal_card_no.toLowerCase().includes(q) ||
           c.public_token.toLowerCase().includes(q) ||
-          (c.client_name && c.client_name.toLowerCase().includes(q)) ||
           c.destination_url.toLowerCase().includes(q)
       );
     }
 
     if (statusFilter !== 'all') {
-      result = result.filter(c => c.status === statusFilter);
-    }
-
-    if (clientFilter !== 'all') {
-      result = result.filter(c => c.client_id === clientFilter);
+      result = result.filter(c => c.status.toLowerCase() === statusFilter.toLowerCase());
     }
 
     setFilteredCards(result);
-  }, [cards, searchQuery, statusFilter, clientFilter]);
+  }, [cards, searchQuery, statusFilter]);
 
   const handleCopy = async (card: Card, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,14 +109,35 @@ export const Cards: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
+  const handleCreateCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreating(true);
+    try {
+      const created = await cardService.createCard({
+        destination_url: newDestinationUrl.trim() || undefined,
+      });
+      success(
+        'Card Created Successfully',
+        `${created.internal_card_no} with token ${created.public_token} registered in Supabase`
+      );
+      setIsCreateModalOpen(false);
+      setNewDestinationUrl('');
+      await loadData();
+    } catch (err) {
+      error('Failed to create card', (err as Error).message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCard) return;
 
     setIsSaving(true);
     try {
-      if (editDestinationUrl !== selectedCard.destination_url) {
-        await cardService.updateCardDestination(selectedCard.id, editDestinationUrl);
+      if (editDestinationUrl.trim() !== selectedCard.destination_url.trim()) {
+        await cardService.updateCardDestination(selectedCard.id, editDestinationUrl.trim());
       }
       if (editStatus !== selectedCard.status) {
         await cardService.updateCardStatus(selectedCard.id, editStatus);
@@ -142,13 +163,6 @@ export const Cards: React.FC = () => {
       ),
     },
     {
-      header: 'Client',
-      accessorKey: 'client_name',
-      cell: card => (
-        <span className="font-medium text-slate-800">{card.client_name || 'Unassigned'}</span>
-      ),
-    },
-    {
       header: 'Public Token',
       accessorKey: 'public_token',
       cell: card => (
@@ -158,25 +172,36 @@ export const Cards: React.FC = () => {
       ),
     },
     {
+      header: 'Dynamic URL',
+      cell: card => {
+        const dynUrl = getDynamicUrl(card.public_token);
+        return (
+          <div className="max-w-xs truncate font-mono text-xs text-brand-700 font-medium" title={dynUrl}>
+            {dynUrl}
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Destination URL',
+      accessorKey: 'destination_url',
+      cell: card => (
+        <div className="max-w-xs truncate text-xs font-mono text-slate-500" title={card.destination_url || 'Unset'}>
+          {card.destination_url || <span className="text-slate-400 italic">None (Unassigned)</span>}
+        </div>
+      ),
+    },
+    {
       header: 'Status',
       accessorKey: 'status',
       cell: card => <StatusBadge status={card.status} type="card" size="sm" />,
-    },
-    {
-      header: 'Destination (Google Review)',
-      accessorKey: 'destination_url',
-      cell: card => (
-        <div className="max-w-xs truncate text-xs font-mono text-slate-500" title={card.destination_url}>
-          {card.destination_url}
-        </div>
-      ),
     },
     {
       header: 'Scans',
       accessorKey: 'total_scans',
       cell: card => (
         <span className="font-mono font-bold text-slate-900 px-2 py-0.5 bg-slate-50 rounded">
-          {card.total_scans || 0}
+          {card.total_scans || card.scan_count || 0}
         </span>
       ),
     },
@@ -196,6 +221,15 @@ export const Cards: React.FC = () => {
           >
             <Copy className="w-4 h-4" />
           </button>
+          <a
+            href={getDynamicUrl(card.public_token)}
+            target="_blank"
+            rel="noreferrer"
+            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-md transition-colors"
+            title="Test Dynamic URL in New Tab"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
           <button
             onClick={() => navigate(`/cards/${card.id}`)}
             className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-md transition-colors"
@@ -206,7 +240,7 @@ export const Cards: React.FC = () => {
           <button
             onClick={e => handleOpenEdit(card, e)}
             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
-            title="Quick Edit Destination / Status"
+            title="Edit Destination / Status"
           >
             <Edit2 className="w-4 h-4" />
           </button>
@@ -219,9 +253,17 @@ export const Cards: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Cards Inventory"
-        description="Search, view, configure destinations, and update status for all dynamic PVC cards."
+        description="Live physical PVC cards registered in the Supabase database. Real-time dynamic redirect & status management."
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadData}
+              leftIcon={<RefreshCw className="w-4 h-4" />}
+            >
+              Refresh
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -233,10 +275,10 @@ export const Cards: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/batches')}
-              leftIcon={<CreditCard className="w-4 h-4" />}
+              onClick={() => setIsCreateModalOpen(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
             >
-              Generate Batch
+              Create Card
             </Button>
           </div>
         }
@@ -244,13 +286,13 @@ export const Cards: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Search */}
-          <div className="sm:col-span-1">
+          <div>
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search card #, token, client..."
+              placeholder="Search card #, token, destination..."
             />
           </div>
 
@@ -261,26 +303,10 @@ export const Cards: React.FC = () => {
               onChange={e => setStatusFilter(e.target.value)}
               className="w-full text-sm py-2 px-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
-              <option value="all">All Card Statuses ({cards.length})</option>
+              <option value="all">All Statuses ({cards.length})</option>
               {ALL_CARD_STATUSES.map(st => (
                 <option key={st} value={st}>
                   {st}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Client Filter */}
-          <div>
-            <select
-              value={clientFilter}
-              onChange={e => setClientFilter(e.target.value)}
-              className="w-full text-sm py-2 px-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
-            >
-              <option value="all">All Clients ({clients.length})</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.business_name}
                 </option>
               ))}
             </select>
@@ -291,14 +317,13 @@ export const Cards: React.FC = () => {
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
           <span>
             Showing <strong className="text-slate-800">{filteredCards.length}</strong> of{' '}
-            <strong className="text-slate-800">{cards.length}</strong> total cards
+            <strong className="text-slate-800">{cards.length}</strong> real database cards
           </span>
-          {(searchQuery || statusFilter !== 'all' || clientFilter !== 'all') && (
+          {(searchQuery || statusFilter !== 'all') && (
             <button
               onClick={() => {
                 setSearchQuery('');
                 setStatusFilter('all');
-                setClientFilter('all');
               }}
               className="text-brand-600 hover:text-brand-800 font-medium"
             >
@@ -308,9 +333,17 @@ export const Cards: React.FC = () => {
         </div>
       </div>
 
-      {/* Cards Table */}
+      {/* Cards Table or Error State */}
       {isLoading ? (
-        <LoadingState message="Loading card records..." />
+        <LoadingState message="Loading cards from Supabase database..." />
+      ) : loadError ? (
+        <div className="p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-3">
+          <div className="text-rose-700 font-semibold text-base">Failed to load cards from Supabase</div>
+          <p className="text-xs text-rose-600 max-w-md mx-auto">{loadError}</p>
+          <Button variant="outline" size="sm" onClick={loadData} leftIcon={<RefreshCw className="w-4 h-4" />}>
+            Retry Connection
+          </Button>
+        </div>
       ) : (
         <Table
           columns={columns}
@@ -322,21 +355,65 @@ export const Cards: React.FC = () => {
               icon={CreditCard}
               title="No cards found"
               description={
-                searchQuery || statusFilter !== 'all' || clientFilter !== 'all'
+                searchQuery || statusFilter !== 'all'
                   ? 'No cards match your current search and filter criteria.'
-                  : 'No cards in inventory yet. Create your first batch to generate cards.'
+                  : 'No cards in the database yet. Click "Create Card" to add your first physical card.'
               }
               actionLabel={
-                searchQuery || statusFilter !== 'all' || clientFilter !== 'all'
+                searchQuery || statusFilter !== 'all'
                   ? undefined
-                  : 'Generate Card Batch'
+                  : 'Create First Card'
               }
-              onAction={() => navigate('/batches')}
-              actionIcon={<CreditCard className="w-4 h-4" />}
+              onAction={() => setIsCreateModalOpen(true)}
+              actionIcon={<Plus className="w-4 h-4" />}
             />
           }
         />
       )}
+
+      {/* Create Card Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Create New Dynamic Card"
+        description="Generates a unique internal card number and cryptographically secure random public token in Supabase."
+        maxWidth="md"
+      >
+        <form onSubmit={handleCreateCard} className="space-y-4">
+          <div>
+            <Input
+              label="Destination URL (Optional)"
+              type="url"
+              value={newDestinationUrl}
+              onChange={e => setNewDestinationUrl(e.target.value)}
+              placeholder="https://example.com"
+              helperText="Where users will be redirected. Can be assigned or updated at any time."
+            />
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+            <div className="font-semibold text-slate-800">Dynamic Card Specifications:</div>
+            <div>• Internal Card #: Auto-incrementing (e.g. CARD-0005)</div>
+            <div>• Public Token: Secure 8-character random token (e.g. X8KQ29LM)</div>
+            <div>• Dynamic URL: Canonical <code className="font-mono text-brand-700">https://dynamic-qr-1.vercel.app/c/&#123;TOKEN&#125;</code></div>
+            <div>• Status: Defaults to READY with scan count 0</div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCreateModalOpen(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isCreating}>
+              Create Card in Database
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Quick Edit Modal */}
       {selectedCard && (
@@ -362,11 +439,12 @@ export const Cards: React.FC = () => {
 
             <div>
               <Input
-                label="Destination URL (Google Review Link)"
+                label="Destination URL"
                 type="url"
                 required
                 value={editDestinationUrl}
                 onChange={e => setEditDestinationUrl(e.target.value)}
+                placeholder="https://example.com"
                 helperText="Where users are forwarded when accessing the dynamic link"
               />
             </div>
@@ -390,7 +468,7 @@ export const Cards: React.FC = () => {
                 Cancel
               </Button>
               <Button type="submit" variant="primary" isLoading={isSaving}>
-                Save Changes
+                Save Changes to Supabase
               </Button>
             </div>
           </form>

@@ -3,12 +3,9 @@ import { CardStatus, ClientStatus, BatchStatus } from '../types';
 export const APP_CONFIG = {
   appName: 'CardSync CRM',
   tagline: 'Dynamic QR + NFC Card Infrastructure',
-  version: '1.0.0-phase1',
+  version: '2.0.0-production',
   dynamicBaseUrl:
-    import.meta.env.VITE_DYNAMIC_BASE_URL ||
-    (typeof window !== 'undefined' && window.location.origin.startsWith('http')
-      ? window.location.origin
-      : 'https://dynamic-qr-1.vercel.app'),
+    import.meta.env.VITE_DYNAMIC_BASE_URL || 'https://dynamic-qr-1.vercel.app',
   dynamicPathPrefix: '/c/',
   defaultGoogleReviewUrl: 'https://example.com/google-review-test',
 };
@@ -121,12 +118,63 @@ export const BATCH_STATUS_CONFIG: Record<BatchStatus, { label: string; color: st
 };
 
 export const ALL_CARD_STATUSES: CardStatus[] = [
+  'Ready',
+  'Disabled',
   'Draft',
   'Link Pending',
-  'Ready',
   'Printed',
   'Delivered',
   'Sold',
-  'Disabled',
   'Archived',
 ];
+
+export function normalizeCardStatus(statusStr: string | null | undefined): CardStatus {
+  if (!statusStr) return 'Ready';
+  const clean = statusStr.toUpperCase().replace(/[\s_-]+/g, '_');
+  switch (clean) {
+    case 'READY':
+      return 'Ready';
+    case 'DISABLED':
+      return 'Disabled';
+    case 'DRAFT':
+      return 'Draft';
+    case 'LINK_PENDING':
+    case 'LINKPENDING':
+      return 'Link Pending';
+    case 'PRINTED':
+      return 'Printed';
+    case 'DELIVERED':
+      return 'Delivered';
+    case 'SOLD':
+      return 'Sold';
+    case 'ARCHIVED':
+      return 'Archived';
+    default:
+      return 'Ready';
+  }
+}
+
+export function toDbStatus(status: CardStatus | string): string {
+  const clean = status.toUpperCase().replace(/[\s_-]+/g, '_');
+  switch (clean) {
+    case 'READY':
+      return 'READY';
+    case 'DISABLED':
+      return 'DISABLED';
+    case 'DRAFT':
+      return 'DRAFT';
+    case 'LINK_PENDING':
+    case 'LINKPENDING':
+      return 'LINK_PENDING';
+    case 'PRINTED':
+      return 'PRINTED';
+    case 'DELIVERED':
+      return 'DELIVERED';
+    case 'SOLD':
+      return 'SOLD';
+    case 'ARCHIVED':
+      return 'ARCHIVED';
+    default:
+      return 'READY';
+  }
+}
