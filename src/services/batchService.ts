@@ -1,7 +1,7 @@
 import { Batch, Card } from '../types';
 import { db } from './storage';
 import { clientService } from './clientService';
-import { generatePublicToken, formatCardNumber } from '../utils';
+import { cardService } from './cardService';
 
 export const batchService = {
   async getBatches(): Promise<Batch[]> {
@@ -25,9 +25,6 @@ export const batchService = {
     }
 
     const batches = db.getBatches();
-    const existingCards = db.getCards();
-    const existingTokens = new Set(existingCards.map(c => c.public_token.toUpperCase()));
-    
     const batchId = `batch_${Date.now().toString(36)}`;
     const now = new Date().toISOString();
 
@@ -45,49 +42,60 @@ export const batchService = {
       created_at: now,
     };
 
-    // Generate guaranteed unique mock cards for this batch
-    const startCardNum = existingCards.length + 1;
-    const generatedCards: Card[] = [];
+    // Bulk generate cards directly into Supabase database
+    const generatedCards = await cardService.createCardsBulk({
+      quantity: data.quantity,
+      destination_url: data.destination_url.trim(),
+      status: 'Ready',
+      client_id: client.id,
+      client_name: client.business_name,
+      batch_id: batchId,
+      batch_name: batchName,
+    });
 
-    for (let i = 0; i < data.quantity; i++) {
-      const cardNum = startCardNum + i;
-      
-      // Ensure unique token
-      let token = generatePublicToken(8);
-      while (existingTokens.has(token)) {
-        token = generatePublicToken(8);
-      }
-      existingTokens.add(token);
-
-      const card: Card = {
-        id: `card_${batchId}_${i + 1}`,
-        internal_card_no: formatCardNumber(cardNum),
-        public_token: token,
-        client_id: client.id,
-        client_name: client.business_name,
-        batch_id: batchId,
-        batch_name: batchName,
-        original_url: data.destination_url.trim(),
-        destination_url: data.destination_url.trim(),
-        status: 'Ready',
-        total_scans: 0,
-        created_at: now,
-        updated_at: now,
-      };
-      generatedCards.push(card);
-    }
-
-    // Save batch & cards
+    // Save batch record
     db.saveBatches([newBatch, ...batches]);
-    db.saveCards([...generatedCards, ...existingCards]);
 
     db.logActivity({
       action: 'Batch Created',
-      description: `Batch "${batchName}" (${data.quantity} cards) generated for ${client.business_name}`,
+      description: `Batch "${batchName}" (${data.quantity} cards) generated in Supabase for ${client.business_name}`,
       type: 'batch',
       entity_id: newBatch.id,
     });
 
     return { batch: newBatch, generatedCards };
+  },
+
+  async deleteBatch(batchId: string, deleteCards = true): Promise<void> {
+    const batches = db.getBatches();
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    if (deleteCards) {
+      // Find cards associated with this batch in local storage or by batch_id
+      const allCards = db.getCards();
+      const batchCardIds = allCards.filter(c => c.batch_id === batchId).map(c => c.id);
+      if (batchCardIds.length > 0) {
+        try {
+          await cardService.deleteCardsBulk(batchCardIds);
+        } catch (err) {
+          console.warn('Error deleting cards associated with batch from Supabase:', err);
+        }
+      }
+    }
+
+    const remaining = batches.filter(b => b.id !== batchId);
+    db.saveBatches(remaining);
+
+    db.logActivity({
+      action: 'Batch Deleted',
+      description: `Batch "${batch.batch_name}" was deleted`,
+      type: 'batch',
+      entity_id: batchId,
+    });
+  },
+
+  async wipeAllBatches(): Promise<void> {
+    db.saveBatches([]);
   },
 };

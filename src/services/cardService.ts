@@ -2,6 +2,7 @@ import { Card, CardStatus } from '../types';
 import { generatePublicToken, formatCardNumber, getDynamicUrl } from '../utils';
 import { supabase } from '../lib/supabase';
 import { normalizeCardStatus, toDbStatus } from '../lib/constants';
+import { db } from './storage';
 
 export interface CreateCardInput {
   destination_url?: string | null;
@@ -209,7 +210,7 @@ export const cardService = {
     const cardRow = data as SupabaseCardRow;
     const dynamicUrl = getDynamicUrl(cardRow.public_token);
 
-    return {
+    const resultCard: CreatedCardResult = {
       id: cardRow.id,
       internal_card_no: cardRow.internal_card_no,
       public_token: cardRow.public_token,
@@ -218,6 +219,217 @@ export const cardService = {
       scan_count: cardRow.scan_count || 0,
       dynamic_url: dynamicUrl,
     };
+
+    // Also sync local storage
+    const currentLocal = db.getCards();
+    db.saveCards([mapRowToCard(cardRow), ...currentLocal]);
+
+    return resultCard;
+  },
+
+  /**
+   * Bulk create cards in Supabase with sequential numbers and collision-safe tokens
+   */
+  async createCardsBulk(input: {
+    quantity: number;
+    destination_url?: string | null;
+    status?: CardStatus;
+    client_id?: string;
+    client_name?: string;
+    batch_id?: string;
+    batch_name?: string;
+  }): Promise<Card[]> {
+    if (!supabase) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { quantity, destination_url, status = 'Ready', client_id, client_name, batch_id, batch_name } = input;
+    if (quantity < 1 || quantity > 500) {
+      throw new Error('Quantity must be between 1 and 500.');
+    }
+
+    // Validate URL if provided
+    let validDestinationUrl: string | null = null;
+    if (destination_url && destination_url.trim().length > 0) {
+      try {
+        const parsed = new URL(destination_url.trim());
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new Error('Protocol must be http: or https:');
+        }
+        validDestinationUrl = destination_url.trim();
+      } catch {
+        throw new Error('Invalid destination URL. Must be a valid HTTP or HTTPS URL (e.g. https://example.com)');
+      }
+    }
+
+    // Fetch existing cards from Supabase to determine starting CARD-XXXX number & existing tokens
+    const { data: existingRows, error: listError } = await supabase
+      .from('cards')
+      .select('internal_card_no, public_token');
+
+    if (listError) {
+      console.error('Error querying existing cards for bulk generation:', listError);
+      throw new Error(`Failed to verify database sequence: ${listError.message}`);
+    }
+
+    let maxNum = 0;
+    const existingTokens = new Set<string>();
+    if (existingRows) {
+      for (const row of existingRows) {
+        if (row.public_token) {
+          existingTokens.add(row.public_token.toUpperCase());
+        }
+        const match = row.internal_card_no?.match(/CARD-(\d+)/i);
+        if (match && match[1]) {
+          const n = parseInt(match[1], 10);
+          if (!isNaN(n) && n > maxNum) {
+            maxNum = n;
+          }
+        }
+      }
+    }
+
+    const insertRows: Array<{
+      internal_card_no: string;
+      public_token: string;
+      destination_url: string | null;
+      status: string;
+      scan_count: number;
+    }> = [];
+
+    const dbStatus = toDbStatus(status);
+
+    for (let i = 0; i < quantity; i++) {
+      const cardNum = maxNum + 1 + i;
+      const internalCardNo = formatCardNumber(cardNum);
+
+      let token = generatePublicToken(8);
+      while (existingTokens.has(token)) {
+        token = generatePublicToken(8);
+      }
+      existingTokens.add(token);
+
+      insertRows.push({
+        internal_card_no: internalCardNo,
+        public_token: token,
+        destination_url: validDestinationUrl,
+        status: dbStatus,
+        scan_count: 0,
+      });
+    }
+
+    // Insert all rows into Supabase in batch
+    const { data: insertedData, error: insertError } = await supabase
+      .from('cards')
+      .insert(insertRows)
+      .select();
+
+    if (insertError || !insertedData) {
+      console.error('Error bulk inserting cards to Supabase:', insertError);
+      throw new Error(`Failed to insert batch cards: ${insertError?.message || 'Bulk insert failed'}`);
+    }
+
+    const createdCards: Card[] = (insertedData as SupabaseCardRow[]).map(row => {
+      const card = mapRowToCard(row);
+      if (client_id) card.client_id = client_id;
+      if (client_name) card.client_name = client_name;
+      if (batch_id) card.batch_id = batch_id;
+      if (batch_name) card.batch_name = batch_name;
+      return card;
+    });
+
+    // Also sync to localStorage db cache
+    const currentLocal = db.getCards();
+    db.saveCards([...createdCards, ...currentLocal]);
+
+    return createdCards;
+  },
+
+  /**
+   * Delete card by ID or internal_card_no from Supabase and sync local storage
+   */
+  async deleteCard(id: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { error } = await supabase
+      .from('cards')
+      .delete()
+      .or(`id.eq.${id},internal_card_no.ilike.${id}`);
+
+    if (error) {
+      console.error(`Error deleting card ${id} from Supabase:`, error);
+      throw new Error(`Failed to delete card: ${error.message}`);
+    }
+
+    // Sync localStorage
+    const localCards = db.getCards().filter(c => c.id !== id && c.internal_card_no !== id);
+    db.saveCards(localCards);
+
+    db.logActivity({
+      action: 'Card Deleted',
+      description: `Card record ${id} removed from database`,
+      type: 'card',
+      entity_id: id,
+    });
+  },
+
+  /**
+   * Bulk delete cards by IDs from Supabase
+   */
+  async deleteCardsBulk(ids: string[]): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client is not configured.');
+    }
+    if (!ids.length) return;
+
+    const { error } = await supabase
+      .from('cards')
+      .delete()
+      .in('id', ids);
+
+    if (error) {
+      console.error('Error deleting bulk cards from Supabase:', error);
+      throw new Error(`Failed to bulk delete cards: ${error.message}`);
+    }
+
+    // Sync localStorage
+    const idSet = new Set(ids);
+    const localCards = db.getCards().filter(c => !idSet.has(c.id));
+    db.saveCards(localCards);
+
+    db.logActivity({
+      action: 'Bulk Cards Deleted',
+      description: `Permanently removed ${ids.length} cards from database`,
+      type: 'card',
+    });
+  },
+
+  /**
+   * Wipe all cards from Supabase and local storage
+   */
+  async wipeAllCards(): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { error } = await supabase
+      .from('cards')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) {
+      console.error('Error wiping cards from Supabase:', error);
+      throw new Error(`Failed to wipe cards: ${error.message}`);
+    }
+
+    db.saveCards([]);
+    db.logActivity({
+      action: 'Cards Database Wiped',
+      description: 'All card records cleared from database',
+      type: 'card',
+    });
   },
 
   /**

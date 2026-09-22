@@ -6,6 +6,7 @@ import {
   Database,
   Info,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
@@ -14,16 +15,22 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { db } from '../services/storage';
+import { clientService } from '../services/clientService';
+import { cardService } from '../services/cardService';
 import { APP_CONFIG } from '../lib/constants';
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { success } = useToast();
+  const { success, error } = useToast();
 
   const [name, setName] = useState(user?.name || 'Alex Rivera');
   const [email, setEmail] = useState(user?.email || 'admin@cardsync.io');
+  
+  // Dialog States
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const [isWipeClientsDialogOpen, setIsWipeClientsDialogOpen] = useState(false);
+  const [isWipeCardsDialogOpen, setIsWipeCardsDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,9 +38,9 @@ export const Settings: React.FC = () => {
   };
 
   const handleResetDatabase = () => {
-    setIsResetting(true);
+    setIsProcessing(true);
     db.resetToDefaults();
-    setIsResetting(false);
+    setIsProcessing(false);
     setIsResetDialogOpen(false);
     success('Database Reset to Seeds', 'Default mock clients, batches, cards, and activity logs restored.');
     setTimeout(() => {
@@ -41,11 +48,37 @@ export const Settings: React.FC = () => {
     }, 800);
   };
 
+  const handleWipeClients = async () => {
+    setIsProcessing(true);
+    try {
+      await clientService.wipeAllClients();
+      success('Clients Wiped', 'All client business profiles have been wiped.');
+      setIsWipeClientsDialogOpen(false);
+    } catch (err) {
+      error('Wipe failed', (err as Error).message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleWipeCards = async () => {
+    setIsProcessing(true);
+    try {
+      await cardService.wipeAllCards();
+      success('Cards Wiped', 'All cards cleared from database.');
+      setIsWipeCardsDialogOpen(false);
+    } catch (err) {
+      error('Wipe failed', (err as Error).message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="System Settings"
-        description="Review admin profile details, dynamic domain configuration, and application metadata."
+        description="Review admin profile details, dynamic domain configuration, and database management."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -126,7 +159,7 @@ export const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Right 1 Col: App Info & Seed Reset */}
+        {/* Right 1 Col: App Info & Database Tools */}
         <div className="space-y-6">
           {/* App Info Box */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
@@ -145,10 +178,6 @@ export const Settings: React.FC = () => {
                 <span className="font-mono text-slate-800">{APP_CONFIG.version}</span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Architecture</span>
-                <span className="text-slate-800 font-medium">Part 2 Production MVP</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Data Layer</span>
                 <span className="text-brand-700 font-mono font-medium">Supabase PostgreSQL (cards)</span>
               </div>
@@ -159,26 +188,48 @@ export const Settings: React.FC = () => {
             </div>
           </div>
 
-          {/* Database Reset Helper */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+          {/* Database Tools Box */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <Database className="w-5 h-5 text-brand-600" />
-              <h3 className="text-base font-bold text-slate-900">Database Tools</h3>
+              <h3 className="text-base font-bold text-slate-900">Data & Reset Tools</h3>
             </div>
 
             <p className="text-xs text-slate-500">
-              Reset mock local storage to default sample clients, batches, and cards.
+              Manage database records, wipe client profiles, or reset data.
             </p>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsResetDialogOpen(true)}
-              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-              className="w-full text-xs text-slate-700 hover:text-rose-700"
-            >
-              Reset Mock Data to Seeds
-            </Button>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsWipeClientsDialogOpen(true)}
+                leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-600" />}
+                className="w-full text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                Wipe All Clients Data
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsWipeCardsDialogOpen(true)}
+                leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-600" />}
+                className="w-full text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                Wipe All Database Cards
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsResetDialogOpen(true)}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                className="w-full text-xs text-slate-700 hover:text-slate-900"
+              >
+                Reset Mock Data to Seeds
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -191,7 +242,29 @@ export const Settings: React.FC = () => {
         title="Reset Local Mock Data"
         message="Are you sure you want to reset all mock cards, batches, and clients back to their initial seeded state?"
         confirmText="Reset to Defaults"
-        isLoading={isResetting}
+        isLoading={isProcessing}
+      />
+
+      {/* Wipe Clients Dialog */}
+      <ConfirmDialog
+        isOpen={isWipeClientsDialogOpen}
+        onClose={() => setIsWipeClientsDialogOpen(false)}
+        onConfirm={handleWipeClients}
+        title="Wipe All Clients Data"
+        message="Are you sure you want to permanently delete all client profiles? This action cannot be undone."
+        confirmText="Wipe All Clients"
+        isLoading={isProcessing}
+      />
+
+      {/* Wipe Cards Dialog */}
+      <ConfirmDialog
+        isOpen={isWipeCardsDialogOpen}
+        onClose={() => setIsWipeCardsDialogOpen(false)}
+        onConfirm={handleWipeCards}
+        title="Wipe All Database Cards"
+        message="Are you sure you want to permanently delete all card records from the database? This action cannot be undone."
+        confirmText="Wipe All Cards"
+        isLoading={isProcessing}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Ban,
   CheckCircle,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -24,6 +25,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { cardService } from '../services/cardService';
@@ -50,6 +52,10 @@ export const CardDetails: React.FC = () => {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusInput, setStatusInput] = useState<CardStatus>('Ready');
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+
+  // Delete Card State
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<HTMLDivElement>(null);
@@ -192,6 +198,20 @@ export const CardDetails: React.FC = () => {
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!card) return;
+    setIsDeleting(true);
+    try {
+      await cardService.deleteCard(card.id);
+      success('Card Deleted', `Permanently removed ${card.internal_card_no} from Supabase.`);
+      navigate('/cards');
+    } catch (err) {
+      error('Delete failed', (err as Error).message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb & Navigation */}
@@ -244,6 +264,15 @@ export const CardDetails: React.FC = () => {
                 leftIcon={<Edit2 className="w-3.5 h-3.5" />}
               >
                 Edit Destination
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-600" />}
+                className="text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                Delete Card
               </Button>
             </div>
           }
@@ -567,6 +596,17 @@ export const CardDetails: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Card Confirmation */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title={`Delete Card ${card.internal_card_no}`}
+        message={`Are you sure you want to permanently delete card "${card.internal_card_no}" (Token: ${card.public_token}) from the Supabase database? This action cannot be undone.`}
+        confirmText="Delete Card"
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

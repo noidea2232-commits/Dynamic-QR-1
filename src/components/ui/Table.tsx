@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface Column<T> {
-  header: string;
+  header: React.ReactNode;
   accessorKey?: keyof T;
   cell?: (item: T) => React.ReactNode;
   className?: string;

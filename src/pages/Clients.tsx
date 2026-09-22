@@ -10,6 +10,7 @@ import {
   Calendar,
   CreditCard,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Table, Column } from '../components/ui/Table';
@@ -42,6 +43,8 @@ export const Clients: React.FC = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [archivingClient, setArchivingClient] = useState<Client | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [isWipeAllOpen, setIsWipeAllOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
@@ -158,6 +161,35 @@ export const Clients: React.FC = () => {
     }
   };
 
+  const handleConfirmDeleteClient = async () => {
+    if (!clientToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await clientService.deleteClient(clientToDelete.id);
+      success('Client Deleted', `Removed ${clientToDelete.business_name}`);
+      setClientToDelete(null);
+      await loadClients();
+    } catch (err) {
+      error('Failed to delete client', (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmWipeAllClients = async () => {
+    setIsSubmitting(true);
+    try {
+      await clientService.wipeAllClients();
+      success('Clients Wiped', 'All client records have been cleared.');
+      setIsWipeAllOpen(false);
+      await loadClients();
+    } catch (err) {
+      error('Failed to wipe clients', (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const columns: Column<Client>[] = [
     {
       header: 'Business Name',
@@ -226,12 +258,19 @@ export const Clients: React.FC = () => {
           {client.status !== 'Archived' && (
             <button
               onClick={() => setArchivingClient(client)}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-md transition-colors"
+              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 rounded-md transition-colors"
               title="Archive Client"
             >
               <Archive className="w-4 h-4" />
             </button>
           )}
+          <button
+            onClick={() => setClientToDelete(client)}
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+            title="Delete Client Permanently"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -243,9 +282,22 @@ export const Clients: React.FC = () => {
         title="Clients Management"
         description="Register and manage business accounts, contact details, and card allocations."
         actions={
-          <Button variant="primary" size="sm" onClick={handleOpenAdd} leftIcon={<Plus className="w-4 h-4" />}>
-            Add Client
-          </Button>
+          <div className="flex items-center gap-2">
+            {clients.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsWipeAllOpen(true)}
+                leftIcon={<Trash2 className="w-4 h-4 text-rose-600" />}
+                className="text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                Wipe Clients Data
+              </Button>
+            )}
+            <Button variant="primary" size="sm" onClick={handleOpenAdd} leftIcon={<Plus className="w-4 h-4" />}>
+              Add Client
+            </Button>
+          </div>
         }
       />
 
@@ -462,6 +514,28 @@ export const Clients: React.FC = () => {
         title="Archive Client"
         message={`Are you sure you want to archive "${archivingClient?.business_name}"? This client will be marked as Archived.`}
         confirmText="Archive Client"
+        isLoading={isSubmitting}
+      />
+
+      {/* Delete Client Dialog */}
+      <ConfirmDialog
+        isOpen={!!clientToDelete}
+        onClose={() => setClientToDelete(null)}
+        onConfirm={handleConfirmDeleteClient}
+        title={`Delete "${clientToDelete?.business_name}"`}
+        message={`Are you sure you want to permanently delete client "${clientToDelete?.business_name}"?`}
+        confirmText="Delete Client"
+        isLoading={isSubmitting}
+      />
+
+      {/* Wipe All Clients Dialog */}
+      <ConfirmDialog
+        isOpen={isWipeAllOpen}
+        onClose={() => setIsWipeAllOpen(false)}
+        onConfirm={handleConfirmWipeAllClients}
+        title="Wipe All Client Profiles"
+        message="Are you sure you want to permanently delete all client accounts and business profiles? This action cannot be undone."
+        confirmText="Wipe All Clients"
         isLoading={isSubmitting}
       />
     </div>

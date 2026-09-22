@@ -9,6 +9,11 @@ import {
   QrCode,
   ExternalLink,
   RefreshCw,
+  Trash2,
+  Download,
+  Layers,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Table, Column } from '../components/ui/Table';
@@ -17,12 +22,14 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { cardService } from '../services/cardService';
 import { Card, CardStatus } from '../types';
 import { formatDate, getDynamicUrl, copyToClipboard } from '../utils';
+import { exportCardsQrZip } from '../utils/qrExportUtils';
 import { ALL_CARD_STATUSES } from '../lib/constants';
 import { useToast } from '../hooks/useToast';
 
@@ -34,11 +41,14 @@ export const Cards: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Selection state for bulk actions
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Modal for Create Card
+  // Modal for Create Single Card
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newDestinationUrl, setNewDestinationUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -50,12 +60,19 @@ export const Cards: React.FC = () => {
   const [editStatus, setEditStatus] = useState<CardStatus>('Ready');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Delete Card State
+  const [cardToDelete, setCardToDelete] = useState<Card | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isExportingSelected, setIsExportingSelected] = useState(false);
+
   const loadData = async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
       const cardsData = await cardService.getCards();
       setCards(cardsData);
+      setSelectedCardIds(new Set());
     } catch (err) {
       const msg = (err as Error).message || 'Failed to load cards from Supabase';
       setLoadError(msg);
@@ -90,6 +107,27 @@ export const Cards: React.FC = () => {
     setFilteredCards(result);
   }, [cards, searchQuery, statusFilter]);
 
+  const handleToggleSelectCard = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedCardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedCardIds.size === filteredCards.length) {
+      setSelectedCardIds(new Set());
+    } else {
+      setSelectedCardIds(new Set(filteredCards.map(c => c.id)));
+    }
+  };
+
   const handleCopy = async (card: Card, e: React.MouseEvent) => {
     e.stopPropagation();
     const url = getDynamicUrl(card.public_token);
@@ -107,6 +145,64 @@ export const Cards: React.FC = () => {
     setEditDestinationUrl(card.destination_url);
     setEditStatus(card.status);
     setIsEditModalOpen(true);
+  };
+
+  const handleDeleteCardPrompt = (card: Card, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCardToDelete(card);
+  };
+
+  const handleConfirmDeleteCard = async () => {
+    if (!cardToDelete) return;
+    setIsDeleting(true);
+    try {
+      await cardService.deleteCard(cardToDelete.id);
+      success('Card Deleted', `${cardToDelete.internal_card_no} permanently removed from Supabase.`);
+      setCardToDelete(null);
+      await loadData();
+    } catch (err) {
+      error('Failed to delete card', (err as Error).message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    const ids = Array.from(selectedCardIds);
+    if (ids.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      await cardService.deleteCardsBulk(ids);
+      success('Cards Deleted', `Permanently removed ${ids.length} cards from Supabase.`);
+      setIsBulkDeleteDialogOpen(false);
+      setSelectedCardIds(new Set());
+      await loadData();
+    } catch (err) {
+      error('Bulk deletion failed', (err as Error).message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleExportSelectedQRs = async () => {
+    const selectedCards = cards.filter(c => selectedCardIds.has(c.id));
+    if (selectedCards.length === 0) return;
+
+    setIsExportingSelected(true);
+    try {
+      const zipName = `QR_Export_Selected_${selectedCards.length}_Cards.zip`;
+      await exportCardsQrZip(selectedCards, {
+        format: 'png',
+        size: 1000,
+        zipFilename: zipName,
+      });
+      success('QR Export Ready', `Downloaded ${zipName} with ${selectedCards.length} QR codes.`);
+    } catch (err) {
+      error('Export failed', (err as Error).message);
+    } finally {
+      setIsExportingSelected(false);
+    }
   };
 
   const handleCreateCard = async (e: React.FormEvent) => {
@@ -153,6 +249,33 @@ export const Cards: React.FC = () => {
   };
 
   const columns: Column<Card>[] = [
+    {
+      header: (
+        <button
+          onClick={handleToggleSelectAll}
+          className="p-1 hover:text-brand-600 rounded text-slate-400 flex items-center"
+          title={selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? 'Deselect All' : 'Select All'}
+        >
+          {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? (
+            <CheckSquare className="w-4 h-4 text-brand-600" />
+          ) : (
+            <Square className="w-4 h-4" />
+          )}
+        </button>
+      ),
+      cell: card => (
+        <button
+          onClick={e => handleToggleSelectCard(card.id, e)}
+          className="p-1 hover:text-brand-600 rounded text-slate-400 flex items-center"
+        >
+          {selectedCardIds.has(card.id) ? (
+            <CheckSquare className="w-4 h-4 text-brand-600" />
+          ) : (
+            <Square className="w-4 h-4" />
+          )}
+        </button>
+      ),
+    },
     {
       header: 'Card Number',
       accessorKey: 'internal_card_no',
@@ -244,6 +367,13 @@ export const Cards: React.FC = () => {
           >
             <Edit2 className="w-4 h-4" />
           </button>
+          <button
+            onClick={e => handleDeleteCardPrompt(card, e)}
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+            title="Delete Card Permanently"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -270,7 +400,15 @@ export const Cards: React.FC = () => {
               onClick={() => navigate('/qr-generator')}
               leftIcon={<QrCode className="w-4 h-4" />}
             >
-              QR Generator
+              Bulk QR Exporter
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/batches')}
+              leftIcon={<Layers className="w-4 h-4" />}
+            >
+              Generate 50 Cards Batch
             </Button>
             <Button
               variant="primary"
@@ -278,11 +416,49 @@ export const Cards: React.FC = () => {
               onClick={() => setIsCreateModalOpen(true)}
               leftIcon={<Plus className="w-4 h-4" />}
             >
-              Create Card
+              Create 1 Card
             </Button>
           </div>
         }
       />
+
+      {/* Bulk Selection Action Bar (appears when rows are checked) */}
+      {selectedCardIds.size > 0 && (
+        <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-semibold text-brand-900">
+            <CheckSquare className="w-4 h-4 text-brand-600" />
+            <span>{selectedCardIds.size} cards selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportSelectedQRs}
+              disabled={isExportingSelected}
+              isLoading={isExportingSelected}
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+              className="bg-white text-xs"
+            >
+              Export Selected QRs (.ZIP)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBulkDeleteDialogOpen(true)}
+              leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-600" />}
+              className="bg-white text-rose-600 border-rose-200 hover:bg-rose-50 text-xs"
+            >
+              Delete Selected ({selectedCardIds.size})
+            </Button>
+            <button
+              onClick={() => setSelectedCardIds(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-800 ml-2"
+            >
+              Clear selection
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
@@ -317,7 +493,7 @@ export const Cards: React.FC = () => {
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
           <span>
             Showing <strong className="text-slate-800">{filteredCards.length}</strong> of{' '}
-            <strong className="text-slate-800">{cards.length}</strong> real database cards
+            <strong className="text-slate-800">{cards.length}</strong> live database cards
           </span>
           {(searchQuery || statusFilter !== 'all') && (
             <button
@@ -357,14 +533,14 @@ export const Cards: React.FC = () => {
               description={
                 searchQuery || statusFilter !== 'all'
                   ? 'No cards match your current search and filter criteria.'
-                  : 'No cards in the database yet. Click "Create Card" to add your first physical card.'
+                  : 'No cards in the database yet. Click "Generate 50 Cards Batch" or "Create 1 Card" to start.'
               }
               actionLabel={
                 searchQuery || statusFilter !== 'all'
                   ? undefined
-                  : 'Create First Card'
+                  : 'Generate 50 Cards Batch'
               }
-              onAction={() => setIsCreateModalOpen(true)}
+              onAction={() => navigate('/batches')}
               actionIcon={<Plus className="w-4 h-4" />}
             />
           }
@@ -393,7 +569,7 @@ export const Cards: React.FC = () => {
 
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
             <div className="font-semibold text-slate-800">Dynamic Card Specifications:</div>
-            <div>• Internal Card #: Auto-incrementing (e.g. CARD-0005)</div>
+            <div>• Internal Card #: Auto-incrementing in Supabase (e.g. CARD-0005)</div>
             <div>• Public Token: Secure 8-character random token (e.g. X8KQ29LM)</div>
             <div>• Dynamic URL: Canonical <code className="font-mono text-brand-700">https://dynamic-qr-1.vercel.app/c/&#123;TOKEN&#125;</code></div>
             <div>• Status: Defaults to READY with scan count 0</div>
@@ -474,6 +650,28 @@ export const Cards: React.FC = () => {
           </form>
         </Modal>
       )}
+
+      {/* Single Card Delete Dialog */}
+      <ConfirmDialog
+        isOpen={!!cardToDelete}
+        onClose={() => setCardToDelete(null)}
+        onConfirm={handleConfirmDeleteCard}
+        title={`Delete Card ${cardToDelete?.internal_card_no}`}
+        message={`Are you sure you want to permanently delete card "${cardToDelete?.internal_card_no}" (Token: ${cardToDelete?.public_token}) from the database? This action cannot be undone.`}
+        confirmText="Delete Card"
+        isLoading={isDeleting}
+      />
+
+      {/* Bulk Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isBulkDeleteDialogOpen}
+        onClose={() => setIsBulkDeleteDialogOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title={`Delete ${selectedCardIds.size} Selected Cards`}
+        message={`Are you sure you want to permanently delete these ${selectedCardIds.size} cards from the Supabase database? This action cannot be undone.`}
+        confirmText={`Delete ${selectedCardIds.size} Cards`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

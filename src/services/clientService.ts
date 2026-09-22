@@ -92,5 +92,21 @@ export const clientService = {
   async deleteClient(id: string): Promise<void> {
     const clients = db.getClients().filter(c => c.id !== id);
     db.saveClients(clients);
+
+    db.logActivity({
+      action: 'Client Deleted',
+      description: `Client record was removed`,
+      type: 'client',
+      entity_id: id,
+    });
+  },
+
+  async wipeAllClients(): Promise<void> {
+    db.saveClients([]);
+    db.logActivity({
+      action: 'Clients Wiped',
+      description: 'All client profiles were cleared',
+      type: 'client',
+    });
   },
 };
