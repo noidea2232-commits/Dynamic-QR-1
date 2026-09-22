@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Card Operations Manual & Team Standard Operating Procedure (SOP)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+      --emerald-600: #059669;
+      --emerald-50: #ecfdf5;
+      --amber-600: #d97706;
+      --amber-50: #fffbeb;
+      --rose-600: #e11d48;
+      --rose-50: #fff1f2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--slate-50);
+      color: var(--slate-800);
+      line-height: 1.65;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 3.5rem;
+      border-radius: 1.25rem;
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      border-bottom: 2px solid var(--slate-100);
+      padding-bottom: 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.85rem;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid #bfdbfe;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.15rem;
+      font-weight: 800;
+      color: var(--slate-900);
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--slate-500);
+      font-size: 1.05rem;
+      font-weight: 400;
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px dashed var(--slate-200);
+      font-size: 0.85rem;
+      color: var(--slate-600);
+    }
+
+    .meta-bar strong {
+      color: var(--slate-900);
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-bottom: 1px solid var(--slate-100);
+      padding-bottom: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p, ul, ol {
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+      color: var(--slate-700);
+    }
+
+    ul, ol {
+      padding-left: 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    .diagram {
+      background: var(--slate-900);
+      color: #f8fafc;
+      padding: 1.75rem;
+      border-radius: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin: 1.5rem 0;
+      overflow-x: auto;
+      border: 1px solid var(--slate-800);
+    }
+
+    .diagram .highlight {
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    .diagram .accent {
+      color: #34d399;
+    }
+
+    .alert {
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+      border-left: 4px solid;
+    }
+
+    .alert-important {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: #1e3a8a;
+    }
+
+    .alert-success {
+      background: var(--emerald-50);
+      border-color: var(--emerald-600);
+      color: #064e3b;
+    }
+
+    .alert-warning {
+      background: var(--amber-50);
+      border-color: var(--amber-600);
+      color: #78350f;
+    }
+
+    .step-card {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 0.85rem;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      transition: all 0.2s ease;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .step-number {
+      width: 2rem;
+      height: 2rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      shrink: 0;
+    }
+
+    .step-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--slate-900);
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--slate-100);
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.3rem;
+      color: #b91c1c;
+      border: 1px solid var(--slate-200);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.875rem;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--slate-200);
+    }
+
+    th {
+      background: var(--slate-50);
+      font-weight: 700;
+      color: var(--slate-900);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    .print-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      background: var(--slate-900);
+      color: white;
+      text-decoration: none;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      float: right;
+    }
+
+    .print-btn:hover {
+      background: var(--slate-800);
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+      .print-btn { display: none; }
+      .step-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+
+    <div class="header">
+      <div class="badge">Standard Operating Procedure (SOP)</div>
+      <h1>Smart Card Operations Manual</h1>
+      <p class="subtitle">Complete guide for creating, printing, encoding NFC tags, and updating dynamic links</p>
+      
+      <div class="meta-bar">
+        <div><strong>System Version:</strong> 2.0.0 Production</div>
+        <div><strong>Dynamic Domain:</strong> <code>https://dynamic-qr-1.vercel.app</code></div>
+        <div><strong>Database Engine:</strong> Supabase PostgreSQL</div>
+        <div><strong>Audience:</strong> Operations, Production & Account Managers</div>
+      </div>
+    </div>
+
+    <!-- Section 1 -->
+    <h2>1. Core Architecture (The Zero Re-Print Rule)</h2>
+    <p>Every dynamic PVC smart card has a <strong>Permanent Security Token</strong> (e.g. <code>7KQ4M8X2</code>). The physical QR code and NFC chip <strong>NEVER</strong> contain the client's direct link (e.g. Google Review link). They only contain the permanent redirect URL.</p>
+
+    <div class="diagram">
+<span class="highlight">PHYSICAL PVC CARD (NFC Chip / Printed QR)</span>
+       │
+       ▼
+<span class="highlight">PERMANENT DYNAMIC URL:</span>
+https://dynamic-qr-1.vercel.app/c/<span class="highlight">{PUBLIC_TOKEN}</span>
+       │
+       ▼
+<span class="accent">SUPABASE EDGE REDIRECTION ENGINE</span>
+       │
+       ▼
+<span class="accent">READS "destination_url" IN DATABASE (Instant HTTP 302)</span>
+       │
+       ▼
+<span class="highlight">CUSTOMER LANDS ON REAL DESTINATION</span>
+(Google Review / Website / Instagram / WhatsApp / Menu)
+    </div>
+
+    <div class="alert alert-important">
+      <strong>⭐ Golden Rule for Operations:</strong> You can change the client's destination URL 1,000 times in the CRM dashboard. The physical card, printed QR code, and NFC chip <strong>never need to be replaced or reprinted</strong>.
+    </div>
+
+    <!-- Section 2 -->
+    <h2>2. Admin Login & Credentials</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Accessing the Admin Portal</div>
+      </div>
+      <p>Navigate to: <strong><a href="https://dynamic-qr-1.vercel.app/login" target="_blank">https://dynamic-qr-1.vercel.app/login</a></strong></p>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Admin Email</strong></td>
+            <td><code>admin@cardsync.io</code></td>
+            <td>Confirmed administrative account</td>
+          </tr>
+          <tr>
+            <td><strong>Password</strong></td>
+            <td><code>admin123</code></td>
+            <td>Direct CRM credentials</td>
+          </tr>
+          <tr>
+            <td><strong>Fast Sign-in</strong></td>
+            <td>Click "1-Click Direct Demo Sign In"</td>
+            <td>Instant access button on login screen</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section 3 -->
+    <h2>3. How to Create a New Card</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Card Generation Workflow</div>
+      </div>
+      <ol>
+        <li>Click <strong>Cards</strong> in the left sidebar menu.</li>
+        <li>Click the blue <strong>"+ Create Card"</strong> button in the top right header.</li>
+        <li>In the modal dialog:
+          <ul>
+            <li><strong>Destination URL (Optional):</strong> Enter the client's real link (e.g. <code>https://g.page/r/your-google-review-link</code>). If you don't have the link yet, leave it empty.</li>
+          </ul>
+        </li>
+        <li>Click <strong>Create Card in Database</strong>.</li>
+      </ol>
+      <div class="alert alert-success">
+        <strong>Automatic Allocation:</strong> The system automatically generates the next card number (e.g., <code>CARD-0005</code>), a cryptographic 8-character random token (e.g., <code>V3GL4CCY</code>), status <code>READY</code>, and dynamic URL <code>https://dynamic-qr-1.vercel.app/c/V3GL4CCY</code>.
+      </div>
+    </div>
+
+    <!-- Section 4 -->
+    <h2>4. Exporting QR Codes for PVC Card Printing</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title">Downloading High-Resolution Print Assets</div>
+      </div>
+      <ol>
+        <li>Go to <strong>Cards</strong> → Click on the card row (or click <strong>QR Generator</strong> from the sidebar).</li>
+        <li>On the right-side asset preview card:
+          <ul>
+            <li><strong>Download {CARD-XXXX}.svg:</strong> Vector format for professional UV/PVC printers (lossless at any scale).</li>
+            <li><strong>Download {CARD-XXXX}.png:</strong> High-resolution raster file for graphic designers.</li>
+          </ul>
+        </li>
+        <li>Confirm that the pre-print verification displays:
+          <code>QR Content: https://dynamic-qr-1.vercel.app/c/{TOKEN}</code>.
+        </li>
+      </ol>
+    </div>
+
+    <!-- Section 5 -->
+    <h2>5. NFC Chip Programming (Tag Writing Guide)</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div class="step-title">Encoding the Physical PVC Card Chip</div>
+      </div>
+      <p>Use any iPhone or Android smartphone with the free <strong>NFC Tools</strong> app (by Wakdev):</p>
+      <ol>
+        <li>Open <strong>NFC Tools</strong> → Tap <strong>Write</strong>.</li>
+        <li>Tap <strong>Add a record</strong> → Choose <strong>URL / URI</strong>.</li>
+        <li>Enter the permanent dynamic URL exactly:
+          <br>
+          <code>https://dynamic-qr-1.vercel.app/c/{PUBLIC_TOKEN}</code> (e.g. <code>https://dynamic-qr-1.vercel.app/c/V3GL4CCY</code>)
+        </li>
+        <li>Tap <strong>OK</strong> → Tap <strong>Write / NDEF Format</strong>.</li>
+        <li>Hold the smartphone against the PVC card until you hear the confirmation sound / checkmark.</li>
+        <li><strong>Quality Check:</strong> Tap the card with your phone. It should immediately open the browser and forward to the client's destination.</li>
+      </ol>
+    </div>
+
+    <!-- Section 6 -->
+    <h2>6. How to Change a Client's Real Link (No Re-Print Needed)</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">5</div>
+        <div class="step-title">Updating Destination Links</div>
+      </div>
+      <p>When a client updates their review link, website, menu, or Instagram:</p>
+      <ol>
+        <li>Open the Admin Dashboard → Go to <strong>Cards</strong>.</li>
+        <li>Search for the card by <strong>Card Number</strong> (e.g. <code>CARD-0001</code>) or <strong>Token</strong>.</li>
+        <li>Click the <strong>Edit (Pencil)</strong> icon on the row (or open <strong>Card Details</strong> → <strong>Edit Destination</strong>).</li>
+        <li>Enter the new destination URL (e.g. <code>https://g.page/r/new-review-link</code>).</li>
+        <li>Click <strong>Save Changes to Supabase</strong>.</li>
+      </ol>
+      <div class="alert alert-success">
+        <strong>Instant Propagation:</strong> The database updates immediately. Anyone tapping the existing physical card will instantly land on the new destination URL.
+      </div>
+    </div>
+
+    <!-- Section 7 -->
+    <h2>7. Enabling & Disabling Cards (Security & Loss)</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">6</div>
+        <div class="step-title">Card Lifecycle & Emergency Deactivation</div>
+      </div>
+      <p>If a customer loses a card, cancels service, or reports theft:</p>
+      <ul>
+        <li><strong>To Disable:</strong> Open the card details and click <strong>"Disable Card"</strong>. Scans will immediately be blocked with an HTTP 403 / "Card Deactivated" screen.</li>
+        <li><strong>To Re-Enable:</strong> Open the card details and click <strong>"Enable Card"</strong>. Redirects will resume immediately.</li>
+      </ul>
+    </div>
+
+    <!-- Section 8 -->
+    <h2>8. Real-Time Scan Analytics</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-number">7</div>
+        <div class="step-title">Verified Scan Tracking</div>
+      </div>
+      <ul>
+        <li><strong>Atomic Tracking:</strong> Every tap or QR scan increments the <code>scan_count</code> column in PostgreSQL.</li>
+        <li><strong>Dashboard:</strong> View real-time aggregated metrics (Total Cards, Active Cards, Total Scans, Disabled Cards).</li>
+        <li><strong>Card Details:</strong> View individual scan totals and timestamps for specific clients.</li>
+      </ul>
+    </div>
+
+    <!-- Summary Checklist -->
+    <h2>9. Production Checklist for New Client Onboarding</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Responsible</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Create Card in Dashboard to generate unique <code>CARD-XXXX</code> & <code>TOKEN</code></td>
+          <td>Admin / Ops</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Download SVG vector QR code and place on PVC artwork</td>
+          <td>Graphic Designer</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Print physical PVC cards via UV / offset printer</td>
+          <td>Manufacturer</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Write <code>https://dynamic-qr-1.vercel.app/c/{TOKEN}</code> into NFC chip using NFC Tools</td>
+          <td>Production Team</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Assign client's Google Review or target link in Dashboard</td>
+          <td>Account Manager</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Test tap with smartphone and ship card to client</td>
+          <td>Quality Assurance</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+
+</body>
+</html>

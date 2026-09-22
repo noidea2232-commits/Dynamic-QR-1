@@ -1,5 +1,4 @@
 import { Client, Batch, Card, ActivityLog } from '../types';
-import { INITIAL_CLIENTS, INITIAL_BATCHES, INITIAL_CARDS, INITIAL_ACTIVITY } from './mockData';
 
 const STORAGE_KEYS = {
   CLIENTS: 'cardsync_clients',
@@ -38,12 +37,7 @@ function setItem<T>(key: string, value: T): void {
 
 export const db = {
   getClients(): Client[] {
-    const clients = getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
-    if (clients.length === 0) {
-      setItem(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
-      return INITIAL_CLIENTS;
-    }
-    return clients;
+    return getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
   },
 
   saveClients(clients: Client[]): void {
@@ -51,12 +45,7 @@ export const db = {
   },
 
   getBatches(): Batch[] {
-    const batches = getItem<Batch[]>(STORAGE_KEYS.BATCHES, []);
-    if (batches.length === 0) {
-      setItem(STORAGE_KEYS.BATCHES, INITIAL_BATCHES);
-      return INITIAL_BATCHES;
-    }
-    return batches;
+    return getItem<Batch[]>(STORAGE_KEYS.BATCHES, []);
   },
 
   saveBatches(batches: Batch[]): void {
@@ -64,12 +53,7 @@ export const db = {
   },
 
   getCards(): Card[] {
-    const cards = getItem<Card[]>(STORAGE_KEYS.CARDS, []);
-    if (cards.length === 0) {
-      setItem(STORAGE_KEYS.CARDS, INITIAL_CARDS);
-      return INITIAL_CARDS;
-    }
-    return cards;
+    return getItem<Card[]>(STORAGE_KEYS.CARDS, []);
   },
 
   saveCards(cards: Card[]): void {
@@ -77,12 +61,7 @@ export const db = {
   },
 
   getActivity(): ActivityLog[] {
-    const logs = getItem<ActivityLog[]>(STORAGE_KEYS.ACTIVITY, []);
-    if (logs.length === 0) {
-      setItem(STORAGE_KEYS.ACTIVITY, INITIAL_ACTIVITY);
-      return INITIAL_ACTIVITY;
-    }
-    return logs;
+    return getItem<ActivityLog[]>(STORAGE_KEYS.ACTIVITY, []);
   },
 
   logActivity(activity: Omit<ActivityLog, 'id' | 'timestamp'>): void {
@@ -92,7 +71,7 @@ export const db = {
       timestamp: new Date().toISOString(),
       ...activity,
     };
-    this.saveActivity([newLog, ...logs].slice(0, 50)); // keep last 50
+    this.saveActivity([newLog, ...logs].slice(0, 50));
   },
 
   saveActivity(logs: ActivityLog[]): void {
@@ -100,9 +79,9 @@ export const db = {
   },
 
   resetToDefaults(): void {
-    setItem(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
-    setItem(STORAGE_KEYS.BATCHES, INITIAL_BATCHES);
-    setItem(STORAGE_KEYS.CARDS, INITIAL_CARDS);
-    setItem(STORAGE_KEYS.ACTIVITY, INITIAL_ACTIVITY);
+    setItem(STORAGE_KEYS.CLIENTS, []);
+    setItem(STORAGE_KEYS.BATCHES, []);
+    setItem(STORAGE_KEYS.CARDS, []);
+    setItem(STORAGE_KEYS.ACTIVITY, []);
   },
 };
